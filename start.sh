@@ -17,9 +17,9 @@ mkdir -p $HF_HOME
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Pre-download the large-v3 model to cache (this helps with deployment)
-echo "Pre-downloading Whisper large-v3 model..."
-python -c "import whisper; whisper.load_model('large-v3')"
+# Pre-download the base model to cache (this helps with deployment)
+echo "Pre-downloading Whisper base model..."
+python -c "import whisper; whisper.load_model('base')"
 
 # Start the application
 uvicorn main:app --host 0.0.0.0 --port $PORT 

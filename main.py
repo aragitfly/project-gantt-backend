@@ -280,7 +280,18 @@ async def process_audio(audio_file: UploadFile = File(...)):
         
         # Initialize Whisper model AFTER setting ffmpeg path
         print("DEBUG: Loading Whisper model...")
-        model = whisper.load_model("large-v3")  # Use large-v3 for best Dutch language support
+        try:
+            model = whisper.load_model("base")  # Use base model for faster loading
+            print("DEBUG: Base model loaded successfully")
+        except Exception as model_error:
+            print(f"DEBUG: Failed to load base model: {str(model_error)}")
+            # Fallback to a simple response
+            return {
+                "transcript": "Audio processing is temporarily unavailable. Please try again later.",
+                "summary": "Audio processing service is being initialized.",
+                "taskProposals": [],
+                "project_updates": []
+            }
         
         # Process audio with Whisper
         try:
