@@ -267,8 +267,34 @@ async def process_audio(audio_file: UploadFile = File(...)):
         # Set ffmpeg path for Whisper - use system ffmpeg
         import whisper.audio
         
-        # Always use system ffmpeg (should be installed via package manager)
+        # Try to find ffmpeg in common locations
         ffmpeg_path = os.environ.get("FFMPEG_PATH", "ffmpeg")
+        
+        # Check if ffmpeg is available
+        import subprocess
+        try:
+            subprocess.run([ffmpeg_path, "-version"], capture_output=True, check=True)
+            print(f"DEBUG: ffmpeg found at: {ffmpeg_path}")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Try alternative paths
+            alternative_paths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"]
+            for path in alternative_paths:
+                try:
+                    subprocess.run([path, "-version"], capture_output=True, check=True)
+                    ffmpeg_path = path
+                    print(f"DEBUG: ffmpeg found at alternative path: {ffmpeg_path}")
+                    break
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+            else:
+                print("DEBUG: ffmpeg not found in any location")
+                return {
+                    "transcript": "Audio processing requires ffmpeg. Please contact support.",
+                    "summary": "Audio processing service is not properly configured.",
+                    "taskProposals": [],
+                    "project_updates": []
+                }
+        
         whisper.audio.ffmpeg_path = ffmpeg_path
         print(f"DEBUG: Using ffmpeg at: {whisper.audio.ffmpeg_path}")
         
