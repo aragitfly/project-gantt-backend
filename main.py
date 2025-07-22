@@ -258,28 +258,23 @@ async def process_audio(audio_file: UploadFile = File(...)):
         audio_file_path = temp_audio.name
         cleanup_files = [temp_audio.name]
         
-        # Set ffmpeg path for Whisper - handle both local development and production
+        # Set ffmpeg path for Whisper - use system ffmpeg
         import whisper.audio
         
-        # Check if we're in production (Railway.app) or development
+        # Always use system ffmpeg (should be installed via package manager)
+        ffmpeg_path = os.environ.get("FFMPEG_PATH", "ffmpeg")
+        whisper.audio.ffmpeg_path = ffmpeg_path
+        print(f"DEBUG: Using ffmpeg at: {whisper.audio.ffmpeg_path}")
+        
+        # Set cache directories for better performance
         if ENVIRONMENT == "production":
-            # In production, ffmpeg should be installed via apt-get in start.sh
-            ffmpeg_path = os.environ.get("FFMPEG_PATH", "ffmpeg")
-            whisper.audio.ffmpeg_path = ffmpeg_path
-            print(f"DEBUG: Production - Using ffmpeg at: {whisper.audio.ffmpeg_path}")
-        else:
-            # In development, use local ffmpeg binary
-            ffmpeg_path = os.path.join(os.getcwd(), "ffmpeg")
-            whisper.audio.ffmpeg_path = ffmpeg_path
-            print(f"DEBUG: Development - Using ffmpeg at: {whisper.audio.ffmpeg_path}")
-            
-            # Also set environment variable for subprocess calls
-            os.environ['PATH'] = os.getcwd() + os.pathsep + os.environ.get('PATH', '')
-            print(f"DEBUG: Updated PATH to include: {os.getcwd()}")
+            os.environ['WHISPER_CACHE_DIR'] = '/tmp/whisper_cache'
+            os.environ['HF_HOME'] = '/tmp/huggingface_cache'
+            print("DEBUG: Production - Using cache directories for large-v3 model")
         
         # Initialize Whisper model AFTER setting ffmpeg path
         print("DEBUG: Loading Whisper model...")
-        model = whisper.load_model("medium")  # Use medium for good Dutch language support (faster than large-v3)
+        model = whisper.load_model("large-v3")  # Use large-v3 for best Dutch language support
         
         # Process audio with Whisper
         try:
