@@ -26,18 +26,13 @@ ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
 
 # CORS middleware - allow all origins in production, specific origins in development
 if ENVIRONMENT == "production":
-    allow_origins = [
-        "https://*.railway.app",
-        "https://*.vercel.app",
-        "https://project-gantt-frontend3.vercel.app",
-        "https://project-gantt-frontend3-m6b7o7t0l-pauls-projects-045e95a7.vercel.app",
-        "https://*.netlify.app",
-        "*"  # Allow all origins in production
-    ]
+    allow_origins = ["*"]  # Allow all origins in production for now
 else:
     allow_origins = [
         "http://localhost:3000",
         "https://localhost:3000",
+        "https://project-gantt-frontend3.vercel.app",
+        "https://project-gantt-frontend3-m6b7o7t0l-pauls-projects-045e95a7.vercel.app",
         "null"
     ]
 
@@ -48,6 +43,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Debug logging for CORS
+print(f"Environment: {ENVIRONMENT}")
+print(f"Allowed origins: {allow_origins}")
 
 # Pydantic models
 class Project(BaseModel):
@@ -79,6 +78,11 @@ current_projects = []
 @app.get("/")
 async def root():
     return {"message": "Project Gantt Chart Manager API"}
+
+@app.get("/cors-test")
+async def cors_test():
+    """Test endpoint to verify CORS is working"""
+    return {"message": "CORS test successful", "timestamp": str(datetime.now())}
 
 @app.post("/upload-excel")
 async def upload_excel(file: UploadFile = File(...)):
