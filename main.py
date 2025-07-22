@@ -29,6 +29,8 @@ if ENVIRONMENT == "production":
     allow_origins = [
         "https://*.railway.app",
         "https://*.vercel.app",
+        "https://project-gantt-frontend3.vercel.app",
+        "https://project-gantt-frontend3-m6b7o7t0l-pauls-projects-045e95a7.vercel.app",
         "https://*.netlify.app",
         "*"  # Allow all origins in production
     ]
