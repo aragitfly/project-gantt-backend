@@ -16,7 +16,7 @@ from typing import List, Optional
 import aiofiles
 import re
 from dateutil import parser
-import whisper
+from openai import OpenAI
 
 app = FastAPI(title="Project Gantt Chart Manager", version="1.0.0")
 
@@ -85,40 +85,21 @@ async def cors_test():
     from datetime import datetime
     return {"message": "CORS test successful", "timestamp": str(datetime.now())}
 
-@app.get("/ffmpeg-test")
-async def ffmpeg_test():
-    """Test endpoint to check if ffmpeg is installed"""
-    import subprocess
-    import os
+@app.get("/openai-test")
+async def openai_test():
+    """Test endpoint to check if OpenAI API is configured"""
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
     
-    ffmpeg_path = os.environ.get("FFMPEG_PATH", "ffmpeg")
-    alternative_paths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"]
-    
-    results = {}
-    
-    # Test the environment variable path
-    try:
-        result = subprocess.run([ffmpeg_path, "-version"], capture_output=True, text=True, check=True)
-        results["env_path"] = {"found": True, "path": ffmpeg_path, "version": result.stdout.split('\n')[0]}
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        results["env_path"] = {"found": False, "path": ffmpeg_path}
-    
-    # Test alternative paths
-    for path in alternative_paths:
-        try:
-            result = subprocess.run([path, "-version"], capture_output=True, text=True, check=True)
-            results[path] = {"found": True, "path": path, "version": result.stdout.split('\n')[0]}
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            results[path] = {"found": False, "path": path}
-    
-    # Check if any ffmpeg was found
-    any_found = any(result["found"] for result in results.values())
+    if not openai_api_key:
+        return {
+            "openai_configured": False,
+            "message": "OpenAI API key not found in environment variables"
+        }
     
     return {
-        "ffmpeg_available": any_found,
-        "environment": ENVIRONMENT,
-        "ffmpeg_path_env": ffmpeg_path,
-        "test_results": results
+        "openai_configured": True,
+        "message": "OpenAI API key is configured",
+        "key_preview": f"{openai_api_key[:10]}..." if openai_api_key else "Not set"
     }
 
 @app.post("/upload-excel")
@@ -280,7 +261,7 @@ async def upload_excel(file: UploadFile = File(...)):
 
 @app.post("/process-audio")
 async def process_audio(audio_file: UploadFile = File(...)):
-    """Process audio file and extract project updates"""
+    """Process audio file and extract project updates using OpenAI Whisper API"""
     
     print(f"DEBUG: Received audio file: {audio_file.filename}, size: {audio_file.size}")
     
@@ -291,90 +272,46 @@ async def process_audio(audio_file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Audio file must be one of: {', '.join(allowed_extensions)}")
     
     try:
-        # Save audio file temporarily with correct extension
+        # Check if OpenAI API key is available
+        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        if not openai_api_key:
+            print("DEBUG: OpenAI API key not found")
+            return {
+                "transcript": "Audio processing requires OpenAI API key. Please contact support.",
+                "summary": "Audio processing service is not properly configured.",
+                "taskProposals": [],
+                "project_updates": []
+            }
+        
+        # Initialize OpenAI client
+        client = OpenAI(api_key=openai_api_key)
+        
+        # Save audio file temporarily
         file_extension = os.path.splitext(audio_file.filename)[1].lower()
         temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=file_extension)
         shutil.copyfileobj(audio_file.file, temp_audio)
         temp_audio.close()
         
-        # Use the audio file directly - Whisper can handle WebM files
         audio_file_path = temp_audio.name
         cleanup_files = [temp_audio.name]
         
-        # Set ffmpeg path for Whisper - use system ffmpeg
-        import whisper.audio
-        
-        # Try to find ffmpeg in common locations
-        ffmpeg_path = os.environ.get("FFMPEG_PATH", "ffmpeg")
-        
-        # Check if ffmpeg is available
-        import subprocess
+        # Process audio with OpenAI Whisper API
         try:
-            subprocess.run([ffmpeg_path, "-version"], capture_output=True, check=True)
-            print(f"DEBUG: ffmpeg found at: {ffmpeg_path}")
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            # Try alternative paths
-            alternative_paths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"]
-            for path in alternative_paths:
-                try:
-                    subprocess.run([path, "-version"], capture_output=True, check=True)
-                    ffmpeg_path = path
-                    print(f"DEBUG: ffmpeg found at alternative path: {ffmpeg_path}")
-                    break
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    continue
-            else:
-                print("DEBUG: ffmpeg not found in any location")
-                return {
-                    "transcript": "Audio processing requires ffmpeg. Please contact support.",
-                    "summary": "Audio processing service is not properly configured.",
-                    "taskProposals": [],
-                    "project_updates": []
-                }
-        
-        whisper.audio.ffmpeg_path = ffmpeg_path
-        print(f"DEBUG: Using ffmpeg at: {whisper.audio.ffmpeg_path}")
-        
-        # Set cache directories for better performance
-        if ENVIRONMENT == "production":
-            os.environ['WHISPER_CACHE_DIR'] = '/tmp/whisper_cache'
-            os.environ['HF_HOME'] = '/tmp/huggingface_cache'
-            print("DEBUG: Production - Using cache directories for base model")
-        
-        # Initialize Whisper model AFTER setting ffmpeg path
-        print("DEBUG: Loading Whisper model...")
-        try:
-            model = whisper.load_model("base")  # Use base model for faster loading
-            print("DEBUG: Base model loaded successfully")
-        except Exception as model_error:
-            print(f"DEBUG: Failed to load base model: {str(model_error)}")
-            # Fallback to a simple response
-            return {
-                "transcript": "Audio processing is temporarily unavailable. Please try again later.",
-                "summary": "Audio processing service is being initialized.",
-                "taskProposals": [],
-                "project_updates": []
-            }
-        
-        # Process audio with Whisper
-        try:
-            print("DEBUG: Starting speech recognition with Whisper...")
+            print("DEBUG: Starting speech recognition with OpenAI Whisper API...")
             
-            # Try to process the audio file directly
-            try:
-                result = model.transcribe(audio_file_path, language="nl")  # Explicitly set Dutch language
-                transcript = result["text"]
-                print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
-            except Exception as whisper_error:
-                print(f"DEBUG: Whisper processing failed: {str(whisper_error)}")
-                # Check if it's an ffmpeg error
-                if "ffmpeg" in str(whisper_error).lower():
-                    transcript = "Audio processing requires ffmpeg. Please install ffmpeg using 'brew install ffmpeg' or try recording in a different format."
-                else:
-                    transcript = "Could not understand audio. Please try again with clearer speech."
-                    
-        except Exception as e:
-            print(f"DEBUG: General processing failed: {str(e)}")
+            with open(audio_file_path, "rb") as audio_file:
+                transcript_response = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="nl",  # Dutch language
+                    response_format="text"
+                )
+            
+            transcript = transcript_response
+            print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
+            
+        except Exception as api_error:
+            print(f"DEBUG: OpenAI API processing failed: {str(api_error)}")
             transcript = "Could not understand audio. Please try again with clearer speech."
         
         # Clean up temp files
