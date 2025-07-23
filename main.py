@@ -321,9 +321,11 @@ async def process_audio(audio_file: UploadFile = File(...)):
         
         # Initialize OpenAI client
         print(f"DEBUG: Starting OpenAI client initialization...")
+        use_new_format = False
         try:
             client = OpenAI(api_key=openai_api_key)
             print(f"DEBUG: OpenAI client initialized successfully with new format")
+            use_new_format = True
         except Exception as init_error:
             print(f"DEBUG: OpenAI client initialization failed: {str(init_error)}")
             # Try alternative initialization
@@ -332,6 +334,7 @@ async def process_audio(audio_file: UploadFile = File(...)):
                 openai.api_key = openai_api_key
                 client = openai
                 print(f"DEBUG: OpenAI client initialized with old format")
+                use_new_format = False
             except Exception as alt_error:
                 print(f"DEBUG: Alternative initialization also failed: {str(alt_error)}")
                 return {
@@ -358,8 +361,8 @@ async def process_audio(audio_file: UploadFile = File(...)):
             
             with open(audio_file_path, "rb") as file_obj:
                 print(f"DEBUG: File opened successfully, making API call...")
-                # Handle both new and old OpenAI client formats
-                if hasattr(client, 'audio'):
+                # Use the format that was successfully initialized
+                if use_new_format:
                     # New OpenAI client format
                     print("DEBUG: Using new OpenAI client format")
                     print("DEBUG: Making API call to OpenAI...")
