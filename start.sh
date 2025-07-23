@@ -13,6 +13,7 @@ ffmpeg -version
 export WHISPER_CACHE_DIR="/tmp/whisper_cache"
 export HF_HOME="/tmp/huggingface_cache"
 export FFMPEG_PATH="/usr/bin/ffmpeg"
+export ENVIRONMENT="production"
 
 # Create cache directories
 mkdir -p $WHISPER_CACHE_DIR

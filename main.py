@@ -22,7 +22,7 @@ app = FastAPI(title="Project Gantt Chart Manager", version="1.0.0")
 
 # Environment variables
 PORT = int(os.environ.get("PORT", 8000))
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "production")  # Force production for Railway
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "development")
 
 # CORS middleware - allow all origins in production, specific origins in development
 if ENVIRONMENT == "production":
