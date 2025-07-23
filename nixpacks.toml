@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["ffmpeg", "python39", "python39Packages.pip"]
+nixPkgs = ["ffmpeg", "python39", "python39Packages.pip", "python39Packages.setuptools"]
 
 [phases.install]
-cmds = ["python -m pip install -r requirements.txt"]
+cmds = ["python -m ensurepip --upgrade", "python -m pip install -r requirements.txt"]
 
 [phases.build]
 cmds = ["python -c \"import whisper; whisper.load_model('base')\""]
