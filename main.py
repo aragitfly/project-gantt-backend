@@ -376,10 +376,10 @@ async def process_audio(audio_file: UploadFile = File(...)):
                     print("DEBUG: API call completed successfully")
                     transcript = transcript_response
                 else:
-                    # Old OpenAI client format
+                    # Old OpenAI client format (but with new API structure)
                     print("DEBUG: Using old OpenAI client format")
                     print("DEBUG: Making API call to OpenAI...")
-                    transcript_response = client.Audio.transcribe(
+                    transcript_response = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=file_obj,
                         language="nl",  # Dutch language
@@ -387,7 +387,7 @@ async def process_audio(audio_file: UploadFile = File(...)):
                         prompt="This is a Dutch business meeting about project management and task updates."
                     )
                     print("DEBUG: API call completed successfully")
-                    transcript = transcript_response.text
+                    transcript = transcript_response
             
             print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
             
