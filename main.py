@@ -33,6 +33,7 @@ else:
         "https://localhost:3000",
         "https://project-gantt-frontend3.vercel.app",
         "https://project-gantt-frontend3-m6b7o7t0l-pauls-projects-045e95a7.vercel.app",
+        "https://v0-projectganttfrontendmain-ar.vercel.app",
         "null"
     ]
 
