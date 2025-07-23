@@ -48,4 +48,6 @@ README.md
 .env
 .env.local
 
- 
+# Ignore Dockerfile to force nixpacks usage
+Dockerfile
+docker-compose.yml
