@@ -364,9 +364,9 @@ async def process_audio(audio_file: UploadFile = File(...)):
                 # Always use the new API format since that's what's available
                 print("DEBUG: Making API call to OpenAI...")
                 try:
-                    # Create a new client for the API call to avoid initialization issues
-                    api_client = OpenAI(api_key=openai_api_key)
-                    transcript_response = api_client.audio.transcriptions.create(
+                    # Try using the old client format that was successfully initialized
+                    print("DEBUG: Using old client format for API call")
+                    transcript_response = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=file_obj,
                         language="nl",  # Dutch language
@@ -377,7 +377,34 @@ async def process_audio(audio_file: UploadFile = File(...)):
                     transcript = transcript_response
                 except Exception as api_error:
                     print(f"DEBUG: API call failed: {str(api_error)}")
-                    transcript = "Could not understand audio. Please try again with clearer speech."
+                    # Try alternative approach with requests library
+                    try:
+                        print("DEBUG: Trying alternative API call method")
+                        import requests
+                        headers = {
+                            'Authorization': f'Bearer {openai_api_key}'
+                        }
+                        files = {
+                            'file': ('audio.webm', file_obj, 'audio/webm'),
+                            'model': (None, 'whisper-1'),
+                            'language': (None, 'nl'),
+                            'response_format': (None, 'text'),
+                            'prompt': (None, 'This is a Dutch business meeting about project management and task updates.')
+                        }
+                        response = requests.post(
+                            'https://api.openai.com/v1/audio/transcriptions',
+                            headers=headers,
+                            files=files
+                        )
+                        if response.status_code == 200:
+                            transcript = response.text
+                            print("DEBUG: Alternative API call completed successfully")
+                        else:
+                            print(f"DEBUG: Alternative API call failed with status {response.status_code}")
+                            transcript = "Could not understand audio. Please try again with clearer speech."
+                    except Exception as alt_error:
+                        print(f"DEBUG: Alternative API call also failed: {str(alt_error)}")
+                        transcript = "Could not understand audio. Please try again with clearer speech."
             
             print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
             
