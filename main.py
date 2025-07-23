@@ -299,10 +299,10 @@ async def process_audio(audio_file: UploadFile = File(...)):
         try:
             print("DEBUG: Starting speech recognition with OpenAI Whisper API...")
             
-            with open(audio_file_path, "rb") as audio_file:
+            with open(audio_file_path, "rb") as file_obj:
                 transcript_response = client.audio.transcriptions.create(
                     model="whisper-1",
-                    file=audio_file,
+                    file=file_obj,
                     language="nl",  # Dutch language
                     response_format="text"
                 )
