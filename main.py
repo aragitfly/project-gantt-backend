@@ -320,8 +320,10 @@ async def process_audio(audio_file: UploadFile = File(...)):
             }
         
         # Initialize OpenAI client
+        print(f"DEBUG: Starting OpenAI client initialization...")
         try:
             client = OpenAI(api_key=openai_api_key)
+            print(f"DEBUG: OpenAI client initialized successfully with new format")
         except Exception as init_error:
             print(f"DEBUG: OpenAI client initialization failed: {str(init_error)}")
             # Try alternative initialization
@@ -329,6 +331,7 @@ async def process_audio(audio_file: UploadFile = File(...)):
                 import openai
                 openai.api_key = openai_api_key
                 client = openai
+                print(f"DEBUG: OpenAI client initialized with old format")
             except Exception as alt_error:
                 print(f"DEBUG: Alternative initialization also failed: {str(alt_error)}")
                 return {
@@ -350,12 +353,16 @@ async def process_audio(audio_file: UploadFile = File(...)):
         # Process audio with OpenAI Whisper API
         try:
             print("DEBUG: Starting speech recognition with OpenAI Whisper API...")
+            print(f"DEBUG: Audio file path: {audio_file_path}")
+            print(f"DEBUG: Audio file size: {os.path.getsize(audio_file_path)} bytes")
             
             with open(audio_file_path, "rb") as file_obj:
+                print(f"DEBUG: File opened successfully, making API call...")
                 # Handle both new and old OpenAI client formats
                 if hasattr(client, 'audio'):
                     # New OpenAI client format
                     print("DEBUG: Using new OpenAI client format")
+                    print("DEBUG: Making API call to OpenAI...")
                     transcript_response = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=file_obj,
@@ -363,10 +370,12 @@ async def process_audio(audio_file: UploadFile = File(...)):
                         response_format="text",
                         prompt="This is a Dutch business meeting about project management and task updates."
                     )
+                    print("DEBUG: API call completed successfully")
                     transcript = transcript_response
                 else:
                     # Old OpenAI client format
                     print("DEBUG: Using old OpenAI client format")
+                    print("DEBUG: Making API call to OpenAI...")
                     transcript_response = client.Audio.transcribe(
                         model="whisper-1",
                         file=file_obj,
@@ -374,6 +383,7 @@ async def process_audio(audio_file: UploadFile = File(...)):
                         response_format="text",
                         prompt="This is a Dutch business meeting about project management and task updates."
                     )
+                    print("DEBUG: API call completed successfully")
                     transcript = transcript_response.text
             
             print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
