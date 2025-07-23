@@ -48,5 +48,4 @@ README.md
 .env
 .env.local
 
-# Ignore Dockerfile when using nixpacks
-Dockerfile 
+ 
