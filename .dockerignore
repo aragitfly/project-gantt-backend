@@ -46,4 +46,7 @@ README.md
 
 # Local development files
 .env
-.env.local 
+.env.local
+
+# Ignore Dockerfile when using nixpacks
+Dockerfile 
