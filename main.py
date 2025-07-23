@@ -284,7 +284,23 @@ async def process_audio(audio_file: UploadFile = File(...)):
             }
         
         # Initialize OpenAI client
-        client = OpenAI(api_key=openai_api_key)
+        try:
+            client = OpenAI(api_key=openai_api_key)
+        except Exception as init_error:
+            print(f"DEBUG: OpenAI client initialization failed: {str(init_error)}")
+            # Try alternative initialization
+            try:
+                import openai
+                openai.api_key = openai_api_key
+                client = openai
+            except Exception as alt_error:
+                print(f"DEBUG: Alternative initialization also failed: {str(alt_error)}")
+                return {
+                    "transcript": "Audio processing service is temporarily unavailable. Please try again later.",
+                    "summary": "Audio processing service is being updated.",
+                    "taskProposals": [],
+                    "project_updates": []
+                }
         
         # Save audio file temporarily
         file_extension = os.path.splitext(audio_file.filename)[1].lower()
@@ -300,14 +316,25 @@ async def process_audio(audio_file: UploadFile = File(...)):
             print("DEBUG: Starting speech recognition with OpenAI Whisper API...")
             
             with open(audio_file_path, "rb") as file_obj:
-                transcript_response = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=file_obj,
-                    language="nl",  # Dutch language
-                    response_format="text"
-                )
-            
-            transcript = transcript_response
+                # Handle both new and old OpenAI client formats
+                if hasattr(client, 'audio'):
+                    # New OpenAI client format
+                    transcript_response = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=file_obj,
+                        language="nl",  # Dutch language
+                        response_format="text"
+                    )
+                    transcript = transcript_response
+                else:
+                    # Old OpenAI client format
+                    transcript_response = client.Audio.transcribe(
+                        model="whisper-1",
+                        file=file_obj,
+                        language="nl",  # Dutch language
+                        response_format="text"
+                    )
+                    transcript = transcript_response.text
             print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
             
         except Exception as api_error:
