@@ -255,19 +255,107 @@ async def process_audio(audio_file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Audio file must be one of: {', '.join(allowed_extensions)}")
     
     try:
-        # For now, return a simple response to test the endpoint
-        # This will help us verify that the basic audio upload is working
-        transcript = "Audio file received successfully. This is a test response while we configure the full audio processing service."
-        summary = "Audio processing endpoint is working. The system is currently in test mode."
-        task_proposals = [
-            {
-                "title": "Test Task Proposal",
-                "description": "This is a test task proposal generated from the audio processing endpoint.",
-                "priority": "Medium",
-                "estimated_duration": "2 hours"
+        # Save audio file temporarily with correct extension
+        file_extension = os.path.splitext(audio_file.filename)[1].lower()
+        temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix=file_extension)
+        shutil.copyfileobj(audio_file.file, temp_audio)
+        temp_audio.close()
+        
+        # Use the audio file directly - Whisper can handle WebM files
+        audio_file_path = temp_audio.name
+        cleanup_files = [temp_audio.name]
+        
+        # Set ffmpeg path for Whisper - use system ffmpeg
+        import whisper.audio
+        
+        # Try to find ffmpeg in common locations
+        ffmpeg_path = os.environ.get("FFMPEG_PATH", "ffmpeg")
+        
+        # Check if ffmpeg is available
+        import subprocess
+        try:
+            subprocess.run([ffmpeg_path, "-version"], capture_output=True, check=True)
+            print(f"DEBUG: ffmpeg found at: {ffmpeg_path}")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Try alternative paths
+            alternative_paths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"]
+            for path in alternative_paths:
+                try:
+                    subprocess.run([path, "-version"], capture_output=True, check=True)
+                    ffmpeg_path = path
+                    print(f"DEBUG: ffmpeg found at alternative path: {ffmpeg_path}")
+                    break
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+            else:
+                print("DEBUG: ffmpeg not found in any location")
+                return {
+                    "transcript": "Audio processing requires ffmpeg. Please contact support.",
+                    "summary": "Audio processing service is not properly configured.",
+                    "taskProposals": [],
+                    "project_updates": []
+                }
+        
+        whisper.audio.ffmpeg_path = ffmpeg_path
+        print(f"DEBUG: Using ffmpeg at: {whisper.audio.ffmpeg_path}")
+        
+        # Set cache directories for better performance
+        if ENVIRONMENT == "production":
+            os.environ['WHISPER_CACHE_DIR'] = '/tmp/whisper_cache'
+            os.environ['HF_HOME'] = '/tmp/huggingface_cache'
+            print("DEBUG: Production - Using cache directories for base model")
+        
+        # Initialize Whisper model AFTER setting ffmpeg path
+        print("DEBUG: Loading Whisper model...")
+        try:
+            model = whisper.load_model("base")  # Use base model for faster loading
+            print("DEBUG: Base model loaded successfully")
+        except Exception as model_error:
+            print(f"DEBUG: Failed to load base model: {str(model_error)}")
+            # Fallback to a simple response
+            return {
+                "transcript": "Audio processing is temporarily unavailable. Please try again later.",
+                "summary": "Audio processing service is being initialized.",
+                "taskProposals": [],
+                "project_updates": []
             }
-        ]
-        project_updates = []
+        
+        # Process audio with Whisper
+        try:
+            print("DEBUG: Starting speech recognition with Whisper...")
+            
+            # Try to process the audio file directly
+            try:
+                result = model.transcribe(audio_file_path, language="nl")  # Explicitly set Dutch language
+                transcript = result["text"]
+                print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
+            except Exception as whisper_error:
+                print(f"DEBUG: Whisper processing failed: {str(whisper_error)}")
+                # Check if it's an ffmpeg error
+                if "ffmpeg" in str(whisper_error).lower():
+                    transcript = "Audio processing requires ffmpeg. Please install ffmpeg using 'brew install ffmpeg' or try recording in a different format."
+                else:
+                    transcript = "Could not understand audio. Please try again with clearer speech."
+                    
+        except Exception as e:
+            print(f"DEBUG: General processing failed: {str(e)}")
+            transcript = "Could not understand audio. Please try again with clearer speech."
+        
+        # Clean up temp files
+        for file_path in cleanup_files:
+            try:
+                os.unlink(file_path)
+            except:
+                pass
+        
+        # Extract project updates from transcript
+        project_updates = extract_project_updates(transcript)
+        
+        # Generate AI-powered task proposals based on transcript
+        task_proposals = generate_task_proposals(transcript)
+        
+        # Generate meeting summary
+        summary = generate_meeting_summary(transcript)
         
         return {
             "transcript": transcript,
