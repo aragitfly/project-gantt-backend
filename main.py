@@ -361,12 +361,12 @@ async def process_audio(audio_file: UploadFile = File(...)):
             
             with open(audio_file_path, "rb") as file_obj:
                 print(f"DEBUG: File opened successfully, making API call...")
-                # Use the format that was successfully initialized
-                if use_new_format:
-                    # New OpenAI client format
-                    print("DEBUG: Using new OpenAI client format")
-                    print("DEBUG: Making API call to OpenAI...")
-                    transcript_response = client.audio.transcriptions.create(
+                # Always use the new API format since that's what's available
+                print("DEBUG: Making API call to OpenAI...")
+                try:
+                    # Create a new client for the API call to avoid initialization issues
+                    api_client = OpenAI(api_key=openai_api_key)
+                    transcript_response = api_client.audio.transcriptions.create(
                         model="whisper-1",
                         file=file_obj,
                         language="nl",  # Dutch language
@@ -375,19 +375,9 @@ async def process_audio(audio_file: UploadFile = File(...)):
                     )
                     print("DEBUG: API call completed successfully")
                     transcript = transcript_response
-                else:
-                    # Old OpenAI client format (but with new API structure)
-                    print("DEBUG: Using old OpenAI client format")
-                    print("DEBUG: Making API call to OpenAI...")
-                    transcript_response = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=file_obj,
-                        language="nl",  # Dutch language
-                        response_format="text",
-                        prompt="This is a Dutch business meeting about project management and task updates."
-                    )
-                    print("DEBUG: API call completed successfully")
-                    transcript = transcript_response
+                except Exception as api_error:
+                    print(f"DEBUG: API call failed: {str(api_error)}")
+                    transcript = "Could not understand audio. Please try again with clearer speech."
             
             print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
             
