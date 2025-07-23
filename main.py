@@ -85,6 +85,42 @@ async def cors_test():
     from datetime import datetime
     return {"message": "CORS test successful", "timestamp": str(datetime.now())}
 
+@app.get("/ffmpeg-test")
+async def ffmpeg_test():
+    """Test endpoint to check if ffmpeg is installed"""
+    import subprocess
+    import os
+    
+    ffmpeg_path = os.environ.get("FFMPEG_PATH", "ffmpeg")
+    alternative_paths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "ffmpeg"]
+    
+    results = {}
+    
+    # Test the environment variable path
+    try:
+        result = subprocess.run([ffmpeg_path, "-version"], capture_output=True, text=True, check=True)
+        results["env_path"] = {"found": True, "path": ffmpeg_path, "version": result.stdout.split('\n')[0]}
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        results["env_path"] = {"found": False, "path": ffmpeg_path}
+    
+    # Test alternative paths
+    for path in alternative_paths:
+        try:
+            result = subprocess.run([path, "-version"], capture_output=True, text=True, check=True)
+            results[path] = {"found": True, "path": path, "version": result.stdout.split('\n')[0]}
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            results[path] = {"found": False, "path": path}
+    
+    # Check if any ffmpeg was found
+    any_found = any(result["found"] for result in results.values())
+    
+    return {
+        "ffmpeg_available": any_found,
+        "environment": ENVIRONMENT,
+        "ffmpeg_path_env": ffmpeg_path,
+        "test_results": results
+    }
+
 @app.post("/upload-excel")
 async def upload_excel(file: UploadFile = File(...)):
     """Upload and parse Excel file containing Gantt chart data"""
