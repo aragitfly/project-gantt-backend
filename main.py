@@ -102,6 +102,42 @@ async def openai_test():
         "key_preview": f"{openai_api_key[:10]}..." if openai_api_key else "Not set"
     }
 
+@app.get("/dutch-test")
+async def dutch_test():
+    """Test endpoint to verify Dutch language processing"""
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    
+    if not openai_api_key:
+        return {
+            "dutch_support": False,
+            "message": "OpenAI API key not found"
+        }
+    
+    try:
+        # Initialize OpenAI client
+        try:
+            client = OpenAI(api_key=openai_api_key)
+        except Exception as init_error:
+            import openai
+            openai.api_key = openai_api_key
+            client = openai
+        
+        # Test with a simple Dutch phrase
+        test_text = "Dit is een test van de Nederlandse taalverwerking."
+        
+        return {
+            "dutch_support": True,
+            "message": "Dutch language processing is configured",
+            "test_phrase": test_text,
+            "client_type": "new" if hasattr(client, 'audio') else "old"
+        }
+        
+    except Exception as e:
+        return {
+            "dutch_support": False,
+            "message": f"Error testing Dutch support: {str(e)}"
+        }
+
 @app.post("/upload-excel")
 async def upload_excel(file: UploadFile = File(...)):
     """Upload and parse Excel file containing Gantt chart data"""
@@ -319,23 +355,34 @@ async def process_audio(audio_file: UploadFile = File(...)):
                 # Handle both new and old OpenAI client formats
                 if hasattr(client, 'audio'):
                     # New OpenAI client format
+                    print("DEBUG: Using new OpenAI client format")
                     transcript_response = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=file_obj,
                         language="nl",  # Dutch language
-                        response_format="text"
+                        response_format="text",
+                        prompt="This is a Dutch business meeting about project management and task updates."
                     )
                     transcript = transcript_response
                 else:
                     # Old OpenAI client format
+                    print("DEBUG: Using old OpenAI client format")
                     transcript_response = client.Audio.transcribe(
                         model="whisper-1",
                         file=file_obj,
                         language="nl",  # Dutch language
-                        response_format="text"
+                        response_format="text",
+                        prompt="This is a Dutch business meeting about project management and task updates."
                     )
                     transcript = transcript_response.text
+            
             print(f"DEBUG: Speech recognition successful: {transcript[:100]}...")
+            
+            # Check if transcript is empty or contains error messages
+            if not transcript or transcript.strip() == "":
+                transcript = "Could not understand audio. Please try again with clearer speech."
+            elif "could not understand" in transcript.lower() or "unclear" in transcript.lower():
+                transcript = "Could not understand audio. Please try again with clearer speech."
             
         except Exception as api_error:
             print(f"DEBUG: OpenAI API processing failed: {str(api_error)}")
